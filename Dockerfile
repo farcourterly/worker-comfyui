@@ -71,17 +71,4 @@ ENV PIP_NO_INPUT=1
 COPY scripts/comfy-manager-set-mode.sh /usr/local/bin/comfy-manager-set-mode
 RUN chmod +x /usr/local/bin/comfy-manager-set-mode
 
-# Bake custom nodes — hardened version (Grok's recommendation)
-# - --depth 1 for shallow/fast clones
-# - set -eux fails fast with verbose output (visible in build logs)
-# - explicit echo on pip failures so we see WHICH node had issues
-RUN set -eux; \
-    cd /comfyui/custom_nodes; \
-    git clone --depth 1 https://github.com/Acly/comfyui-tooling-nodes.git; \
-    git clone --depth 1 https://github.com/kijai/ComfyUI-WanVideoWrapper.git; \
-    git clone --depth 1 https://github.com/WASasquatch/was-node-suite-comfyui.git; \
-    uv pip install --no-cache-dir -r ComfyUI-WanVideoWrapper/requirements.txt || echo "WARN: WanVideoWrapper requirements failed (continuing)"; \
-    uv pip install --no-cache-dir -r comfyui-tooling-nodes/requirements.txt || echo "WARN: tooling-nodes requirements failed (continuing)"; \
-    uv pip install --no-cache-dir -r was-node-suite-comfyui/requirements.txt || echo "WARN: WAS requirements failed (continuing)"
-
 CMD ["/start.sh"]
