@@ -776,59 +776,62 @@ def handler(job):
 
                     if image_bytes:
                         file_extension = os.path.splitext(filename)[1] or ".png"
+                        bucket_endpoint = os.environ.get("BUCKET_ENDPOINT_URL")
+                        bucket_name = os.environ.get("BUCKET_NAME")
+                        bucket_key_id = os.environ.get("BUCKET_ACCESS_KEY_ID")
+                        bucket_secret = os.environ.get("BUCKET_SECRET_ACCESS_KEY")
 
-                        if os.environ.get("BUCKET_ENDPOINT_URL"):
+                        # Use direct boto3 with R2-correct config when bucket is configured.
+                        # Falls back to base64 when no bucket configured (useful for local testing).
+                        if bucket_endpoint and bucket_name and bucket_key_id and bucket_secret:
                             try:
-                                with tempfile.NamedTemporaryFile(
-                                    suffix=file_extension, delete=False
-                                ) as temp_file:
-                                    temp_file.write(image_bytes)
-                                    temp_file_path = temp_file.name
-                                print(
-                                    f"worker-comfyui - Wrote image bytes to temporary file: {temp_file_path}"
-                                )
+                                import boto3
+                                from botocore.config import Config
 
-                                print(f"worker-comfyui - Uploading {filename} to S3...")
-                                s3_url = rp_upload.upload_image(job_id, temp_file_path)
-                                os.remove(temp_file_path)  # Clean up temp file
-                                print(
-                                    f"worker-comfyui - Uploaded {filename} to S3: {s3_url}"
+                                s3 = boto3.client(
+                                    "s3",
+                                    endpoint_url=bucket_endpoint,
+                                    aws_access_key_id=bucket_key_id,
+                                    aws_secret_access_key=bucket_secret,
+                                    region_name="auto",
+                                    config=Config(
+                                        signature_version="s3v4",
+                                        s3={"addressing_style": "path"},
+                                    ),
                                 )
-                                # Append dictionary with filename and URL
-                                output_data.append(
-                                    {
-                                        "filename": filename,
-                                        "type": "s3_url",
-                                        "data": s3_url,
-                                    }
+                                key = f"{job_id}/{filename}"
+                                s3.put_object(
+                                    Bucket=bucket_name,
+                                    Key=key,
+                                    Body=image_bytes,
+                                    ContentType=f"image/{file_extension.lstrip('.').lower() or 'png'}",
                                 )
+                                # Presigned URL valid for 7 days — the app will download immediately
+                                # and persist locally, so this is just a transit handoff.
+                                presigned = s3.generate_presigned_url(
+                                    "get_object",
+                                    Params={"Bucket": bucket_name, "Key": key},
+                                    ExpiresIn=604800,
+                                )
+                                output_data.append({
+                                    "filename": filename,
+                                    "type": "s3_url",
+                                    "data": presigned,
+                                })
+                                print(f"worker-comfyui - Uploaded {filename} to R2: {key}")
                             except Exception as e:
-                                error_msg = f"Error uploading {filename} to S3: {e}"
+                                error_msg = f"Error uploading {filename} to R2: {e}"
                                 print(f"worker-comfyui - {error_msg}")
                                 errors.append(error_msg)
-                                if "temp_file_path" in locals() and os.path.exists(
-                                    temp_file_path
-                                ):
-                                    try:
-                                        os.remove(temp_file_path)
-                                    except OSError as rm_err:
-                                        print(
-                                            f"worker-comfyui - Error removing temp file {temp_file_path}: {rm_err}"
-                                        )
                         else:
-                            # Return as base64 string
+                            # Base64 fallback for local testing or when bucket isn't configured
                             try:
-                                base64_image = base64.b64encode(image_bytes).decode(
-                                    "utf-8"
-                                )
-                                # Append dictionary with filename and base64 data
-                                output_data.append(
-                                    {
-                                        "filename": filename,
-                                        "type": "base64",
-                                        "data": base64_image,
-                                    }
-                                )
+                                base64_image = base64.b64encode(image_bytes).decode("utf-8")
+                                output_data.append({
+                                    "filename": filename,
+                                    "type": "base64",
+                                    "data": base64_image,
+                                })
                                 print(f"worker-comfyui - Encoded {filename} as base64")
                             except Exception as e:
                                 error_msg = f"Error encoding {filename} to base64: {e}"
