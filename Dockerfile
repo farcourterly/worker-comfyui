@@ -53,8 +53,6 @@ RUN if [ "$ENABLE_PYTORCH_UPGRADE" = "true" ]; then \
       uv pip install --force-reinstall torch torchvision torchaudio --index-url ${PYTORCH_INDEX_URL}; \
     fi
 
-# Always install working PyTorch + sqlalchemy (critical fixes)
-RUN uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 RUN uv pip install sqlalchemy
 
 WORKDIR /comfyui
