@@ -47,12 +47,13 @@ RUN if [ -n "${CUDA_VERSION_FOR_COMFY}" ]; then \
       /usr/bin/yes | comfy --workspace /comfyui install --version "${COMFYUI_VERSION}" --nvidia; \
     fi
 
-# Force PyTorch installation (critical fix)
-RUN uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-
 RUN if [ "$ENABLE_PYTORCH_UPGRADE" = "true" ]; then \
       uv pip install --force-reinstall torch torchvision torchaudio --index-url ${PYTORCH_INDEX_URL}; \
     fi
+
+RUN uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+
+RUN uv pip install sqlalchemy
 
 WORKDIR /comfyui
 
