@@ -1,4 +1,3 @@
-# Use CUDA 12.1.1 on Ubuntu 22.04 — works on ALL RunPod machines
 ARG BASE_IMAGE=nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 
 FROM ${BASE_IMAGE}
