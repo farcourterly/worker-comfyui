@@ -1,5 +1,5 @@
 # Build argument for base image selection
-ARG BASE_IMAGE=nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+ARG BASE_IMAGE=nvidia/cuda:12.4.1-cudnn9-runtime-ubuntu24.04
 
 # Single stage build (no model download stages — models live on the volume)
 FROM ${BASE_IMAGE}
@@ -14,11 +14,7 @@ ENV PIP_PREFER_BINARY=1
 ENV PYTHONUNBUFFERED=1
 ENV CMAKE_BUILD_PARALLEL_LEVEL=8
 
-RUN apt-get update && apt-get install -y software-properties-common
-
-# Install Python 3.12 + other dependencies (using deadsnakes PPA because base is Ubuntu 22.04)
-RUN add-apt-repository ppa:deadsnakes/ppa -y && \
-    apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y \
     python3.12 \
     python3.12-venv \
     python3.12-dev \
