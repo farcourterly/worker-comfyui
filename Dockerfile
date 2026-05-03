@@ -1,5 +1,5 @@
 # Build argument for base image selection
-ARG BASE_IMAGE=nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
+ARG BASE_IMAGE=nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 # Single stage build (no model download stages — models live on the volume)
 FROM ${BASE_IMAGE}
@@ -58,6 +58,9 @@ WORKDIR /
 
 # Runtime deps (boto3 added for our patched handler's R2 upload)
 RUN uv pip install runpod requests websocket-client boto3
+
+# Verify all runtime dependencies are importable (catches missing packages early)
+RUN python -c "import runpod, requests, websocket, boto3; print('All runtime deps OK')"
 
 # Application code (picks up patched handler.py from repo root)
 ADD src/start.sh src/network_volume.py handler.py test_input.json ./
