@@ -1,7 +1,6 @@
-# Build argument for base image selection
-ARG BASE_IMAGE=nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
+# Use CUDA 12.1.1 on Ubuntu 22.04 — works on ALL RunPod machines
+ARG BASE_IMAGE=nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
-# Single stage build (no model download stages — models live on the volume)
 FROM ${BASE_IMAGE}
 
 ARG COMFYUI_VERSION=latest
@@ -14,7 +13,11 @@ ENV PIP_PREFER_BINARY=1
 ENV PYTHONUNBUFFERED=1
 ENV CMAKE_BUILD_PARALLEL_LEVEL=8
 
-RUN apt-get update && apt-get install -y \
+# Install Python 3.12 + dependencies (manual deadsnakes method — no network timeout)
+RUN apt-get update && apt-get install -y software-properties-common && \
+    echo "deb http://ppa.launchpad.net/deadsnakes/ppa/ubuntu jammy main" > /etc/apt/sources.list.d/deadsnakes-ppa.list && \
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F23C5A6CF475977595C89F51BA6932366A755776 && \
+    apt-get update && apt-get install -y \
     python3.12 \
     python3.12-venv \
     python3.12-dev \
@@ -51,23 +54,18 @@ RUN if [ "$ENABLE_PYTORCH_UPGRADE" = "true" ]; then \
       uv pip install --force-reinstall torch torchvision torchaudio --index-url ${PYTORCH_INDEX_URL}; \
     fi
 
-RUN uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-
+# Always install working PyTorch + sqlalchemy (critical fixes)
+RUN uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 RUN uv pip install sqlalchemy
 
 WORKDIR /comfyui
-
 ADD src/extra_model_paths.yaml ./
-
 WORKDIR /
 
-# Runtime deps (boto3 added for our patched handler's R2 upload)
 RUN uv pip install runpod requests websocket-client boto3
 
-# Verify all runtime dependencies are importable (catches missing packages early)
-RUN python -c "import runpod, requests, websocket, boto3; print('All runtime deps OK')"
+RUN python -c "import runpod, requests, websocket, boto3, torch, sqlalchemy; print('All runtime deps OK')"
 
-# Application code (picks up patched handler.py from repo root)
 ADD src/start.sh src/network_volume.py handler.py test_input.json ./
 RUN chmod +x /start.sh
 
