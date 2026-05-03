@@ -1,5 +1,5 @@
 # Build argument for base image selection
-ARG BASE_IMAGE=nvidia/cuda:12.5.1-cudnn9-runtime-ubuntu24.04
+ARG BASE_IMAGE=nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 
 # Single stage build (no model download stages — models live on the volume)
 FROM ${BASE_IMAGE}
